@@ -228,18 +228,40 @@ def get_today_key():
 def calculate_streak(data):
     """
     Counts how many days IN A ROW all tasks were completed.
-    Starts checking from yesterday and goes backwards.
+
+    OLD logic: started from yesterday → today was never counted.
+    NEW logic: start from TODAY first.
+      - If today is fully done  → count it, then go backwards.
+      - If today is not done yet → skip today, start from yesterday.
+    This way the streak shows 1 the moment you finish all tasks today.
     """
     streak = 0
-    check_date = datetime.date.today() - datetime.timedelta(days=1)
+    today_key = datetime.date.today().strftime("%Y-%m-%d")
 
+    # --- Step 1: Decide the starting date ---
+    # Check if today's tasks are ALL completed (every value is True).
+    today_complete = (
+        today_key in data          # today has an entry  AND
+        and len(data[today_key]) > 0   # it is not empty  AND
+        and all(data[today_key].values())  # every task is True
+    )
+
+    if today_complete:
+        # Today is done → start counting from today
+        check_date = datetime.date.today()
+    else:
+        # Today is not done yet → start counting from yesterday
+        check_date = datetime.date.today() - datetime.timedelta(days=1)
+
+    # --- Step 2: Walk backwards day by day ---
     for _ in range(365):
         key = check_date.strftime("%Y-%m-%d")
+
         if key in data and all(data[key].values()):
-            streak += 1
-            check_date -= datetime.timedelta(days=1)
+            streak += 1                               # This day was perfect → add 1
+            check_date -= datetime.timedelta(days=1)  # Move one day further back
         else:
-            break
+            break   # Chain is broken → stop counting
 
     return streak
 
